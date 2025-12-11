@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import requests
@@ -191,7 +192,7 @@ def get_weather(lat, lon):
     """取得 Open-Meteo 即時天氣"""
     try:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&timezone=Asia%2FTokyo"
-        r = requests.get(url).json()
+        r = requests.get(url, timeout=5).json()
         current = r['current']
         
         # 簡單的天氣代碼轉換
@@ -209,12 +210,12 @@ def get_weather(lat, lon):
             "wind": f"{current['wind_speed_10m']} km/h",
             "icon": icon
         }
-    except:
+    except Exception as e:
         return {"temp": "--", "feel": "--", "rain": "--", "wind": "--", "icon": "⚠️"}
 
 def get_exchange_rate():
     """模擬匯率 API (避免 Key 失效，使用靜態或簡單爬蟲概念)"""
-    # 這裡為了演示穩定性，設定一個動態變化的假數值，實際可換成 twd.rter.info API
+    # 這裡為了演示穩定性，設定一個動態變化的假數值
     base_rate = 0.215
     variation = random.uniform(-0.002, 0.002)
     return f"{base_rate + variation:.4f}"
@@ -224,7 +225,11 @@ def get_exchange_rate():
 # ==========================================
 
 # --- Header: 日期與狀態 ---
-tokyo_tz = pytz.timezone('Asia/Tokyo')
+try:
+    tokyo_tz = pytz.timezone('Asia/Tokyo')
+except:
+    tokyo_tz = pytz.utc # Fallback
+    
 now_tokyo = datetime.now(tokyo_tz)
 date_str = now_tokyo.strftime("%Y-%m-%d")
 time_str = now_tokyo.strftime("%H:%M")
@@ -232,7 +237,7 @@ time_str = now_tokyo.strftime("%H:%M")
 # 判斷今天是行程的哪一天
 current_key = date_str
 if current_key not in ITINERARY:
-    # 如果不在行程日期內，預設顯示第一天或當作測試
+    # 如果不在行程日期內，預設顯示第一天作為展示
     current_key = "2025-12-28" 
     status_msg = "⚠️ 非行程日期 (預覽模式)"
 else:
@@ -324,11 +329,13 @@ st.markdown(f"""
 
 for event in day_data['events']:
     # 判斷任務狀態 (假設過去時間為完成)
-    event_hour = int(event['time'].split(":")[0])
-    is_done = now_tokyo.hour > event_hour
+    try:
+        event_hour = int(event['time'].split(":")[0])
+        is_done = now_tokyo.hour > event_hour
+    except:
+        is_done = False
     
     color = "#444" if is_done else "#fff"
-    icon = "✅" if is_done else "💠"
     
     st.markdown(f"""
         <div class="timeline-item" style="border-color: {('#333' if is_done else '#ff0055')}">
